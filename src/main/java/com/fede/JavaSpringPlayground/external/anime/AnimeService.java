@@ -4,6 +4,8 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fede.JavaSpringPlayground.RestConfiguration;
 import com.fede.JavaSpringPlayground.external.ExternalServiceException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.web.client.RestTemplateBuilder;
 import org.springframework.context.annotation.Bean;
@@ -12,12 +14,15 @@ import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.ResourceAccessException;
 import org.springframework.web.client.RestTemplate;
 
+import java.net.SocketTimeoutException;
 import java.text.MessageFormat;
 import java.time.Duration;
 import java.util.List;
 
 @Service
 public class AnimeService {
+
+    private static final Logger logger = LoggerFactory.getLogger(AnimeService.class);
 
     private final RestConfiguration restConfiguration;
 
@@ -52,9 +57,11 @@ public class AnimeService {
             }
             throw new ExternalServiceException(Integer.valueOf(errorResponse.getStatus()), errorResponse.getMessage());
         } catch (ResourceAccessException resourceAccessException) {
-
-            //TODO: Check cause instance
-            throw new ExternalServiceException(408, "Exceeded timeout of " + restConfiguration.getServiceTimeout() + "ms");
+            if (resourceAccessException.getCause() instanceof SocketTimeoutException) {
+                throw new ExternalServiceException(408, MessageFormat.format("Exceeded timeout of {0} ms",restConfiguration.getServiceTimeout()));
+            } else {
+                throw new ExternalServiceException(500, resourceAccessException.getMessage());
+            }
         }
     }
 
